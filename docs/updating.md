@@ -61,7 +61,7 @@ Update 2 dependencies
 |------|--------|
 | `all` (default) | One branch + one MR with every outdated dep. |
 | `ecosystem` | One branch + MR per ecosystem (`depfresh/python-updates`, …). |
-| `dependency` | One branch + MR per package (`depfresh/react-19.0.0`, …) — Dependabot-style. |
+| `dependency` | One branch + MR per package (`depfresh/react`, …) — Dependabot-style. The version appears only in the title, so re-runs reuse the branch. |
 
 ```console
 depfresh update https://gitlab.com/me/app --token "$GITLAB_TOKEN" --grouping dependency
@@ -134,8 +134,10 @@ merges, so branches don't accumulate:
 
 ## Limitations (v1)
 
-- Constraint range handling is best-effort: for multi-clause ranges only the
-  first version token is bumped, which can need manual review if the bump crosses
-  an upper bound.
+- Constraint range handling is best-effort: for a multi-clause range, the lower
+  bound is bumped only when the new version stays below the range's upper bound.
+  A bump that would cross it is **skipped** (left untouched for manual review)
+  rather than producing an unsatisfiable constraint like `>=1.0,<2.0` →
+  `>=2.5.0,<2.0`.
 - HTTPS + token remotes only (no SSH).
 - Manifests can drift from lockfiles until you regenerate them.

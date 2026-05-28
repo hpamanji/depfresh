@@ -181,7 +181,7 @@ authentication keep working for the new ecosystem.
    `replace_gomod_dependency`, `replace_gemfile_dependency`) — or a new helper:
 
    ```python
-   from depfresh.editors.base import EditResult, Editor, replace_toml_dependency
+   from depfresh_pro.editors.base import EditResult, Editor, replace_toml_dependency
 
    class MixExsEditor(Editor):
        ecosystem = "elixir"
@@ -194,9 +194,9 @@ authentication keep working for the new ecosystem.
    New version strings are computed by `versioning.bump_constraint`, which
    preserves the operator/prefix (`^18.2.0` + `19.0.0` → `^19.0.0`).
 
-2. **Register it** in `src/depfresh/editors/registry.py` (`EDITORS`). Only add
-   editors for **declared** manifests — lockfiles must stay absent so they're
-   skipped.
+2. **Register it** in `packages/depfresh-pro/src/depfresh_pro/editors/registry.py`
+   (`EDITORS`). Only add editors for **declared** manifests — lockfiles must stay
+   absent so they're skipped.
 3. **Add tests** in `tests/test_editors.py`; assert formatting is preserved and,
    where possible, that the result re-parses to the new version.
 

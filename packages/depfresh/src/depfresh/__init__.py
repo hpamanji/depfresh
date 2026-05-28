@@ -10,7 +10,7 @@ from depfresh.models import Dependency, ManifestResult, ScanResult
 from depfresh.resolver import UpdateInfo, check_updates
 from depfresh.scanner import scan
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "BumpPlan",

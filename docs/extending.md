@@ -3,20 +3,21 @@
 Adding support for a new manifest format or ecosystem is intentionally small.
 There are four extension points; you rarely need all of them.
 
-| To… | Add a… | In | Registered in |
-|-----|--------|----|---------------|
-| Read a new manifest | `Parser` | `parsers/<eco>.py` | `parsers/registry.py` (`PARSERS`) |
-| Check updates for an ecosystem | `Registry` | `resolver.py` | `_REGISTRIES` |
-| Let `update` rewrite a manifest | `Editor` | `editors/<eco>.py` | `editors/registry.py` (`EDITORS`) |
-| Support a new git forge | `Forge` | `forge/<name>.py` | `forge/detect.py` |
+| To… | Add a… | In package | In | Registered in |
+|-----|--------|-----------|----|---------------|
+| Read a new manifest | `Parser` | `depfresh` | `parsers/<eco>.py` | `parsers/registry.py` (`PARSERS`) |
+| Check updates for an ecosystem | `Registry` | `depfresh` | `resolver.py` | `_REGISTRIES` |
+| Let `update` rewrite a manifest | `Editor` | `depfresh-pro` | `editors/<eco>.py` | `editors/registry.py` (`EDITORS`) |
+| Support a new git forge | `Forge` | `depfresh-pro` | `forge/<name>.py` | `forge/detect.py` |
 
-Install the dev extra first (`pip install -e ".[dev]"`) and run `pytest` as you
-go.
+Install both packages editable first
+(`pip install -e "packages/depfresh[dev]" -e packages/depfresh-pro`) and run
+`pytest` as you go.
 
 ## Add a parser
 
 ```python
-# src/depfresh/parsers/elixir.py
+# packages/depfresh/src/depfresh/parsers/elixir.py
 from depfresh.models import Dependency
 from depfresh.parsers.base import Parser
 
@@ -40,7 +41,7 @@ empty versions to `None`. Then add an instance to `PARSERS` in
 ## Add a registry (update checks)
 
 ```python
-# in src/depfresh/resolver.py
+# in packages/depfresh/src/depfresh/resolver.py
 class HexRegistry(Registry):
     ecosystem = "elixir"
     default_base_url = "https://hex.pm/api/packages"
@@ -61,8 +62,8 @@ Editors do **text-level** replacement so comments/formatting survive — never
 parse-and-reserialize. Reuse a helper from `editors/base.py`:
 
 ```python
-# src/depfresh/editors/elixir.py
-from depfresh.editors.base import EditResult, Editor, replace_toml_dependency
+# packages/depfresh-pro/src/depfresh_pro/editors/elixir.py
+from depfresh_pro.editors.base import EditResult, Editor, replace_toml_dependency
 
 class MixExsEditor(Editor):
     ecosystem = "elixir"
@@ -94,7 +95,7 @@ Implement the `Forge` interface (`forge/base.py`): `default_branch`,
 
 - [ ] Tests added/updated; `pytest` green.
 - [ ] No third-party runtime dependency introduced.
-- [ ] `ruff check`, `ruff format --check`, `mypy src/depfresh` pass.
+- [ ] `ruff check packages`, `ruff format --check packages`, `mypy` pass.
 - [ ] Docs updated if behaviour or options changed.
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md) for the full workflow and coding style.
