@@ -216,7 +216,7 @@ def make_default_fetch(timeout: float = 10.0):
 
     def fetch(url: str, headers: dict[str, str] | None = None) -> str:
         request_headers = {
-            "User-Agent": "depfresh (+https://github.com/depfresh/depfresh)",
+            "User-Agent": "depfresh (+https://github.com/hpamanji/depfresh)",
             "Accept": "*/*",
         }
         if headers:
