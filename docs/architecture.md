@@ -14,20 +14,26 @@ the network stages touch anything outside the working tree.
 
 ## Modules
 
-| Module | Responsibility |
-|--------|----------------|
-| `scanner.py` | Walk a tree, skip ignored dirs, dispatch files to parsers. |
-| `parsers/` | One family per module; manifest text → `Dependency` objects. Registered in `parsers/registry.py` (`PARSERS`). |
-| `models.py` | `Dependency`, `ManifestResult`, `ScanResult` dataclasses. |
-| `versioning.py` | Best-effort version extraction, comparison, and `bump_constraint`. |
-| `resolver.py` | Per-ecosystem registry clients + parallel `check_updates`. The only place the base scan's network lives. |
-| `bump.py` | Group outdated deps into a package-centric `BumpPlan`. |
-| `config.py` | Merge config from files + env + CLI; registry and forge auth. |
-| `editors/` | Format-preserving version write-back; registered in `editors/registry.py` (`EDITORS`). |
-| `vcs.py` | Thin `git` CLI wrapper (clone/branch/commit/push). |
-| `forge/` | GitHub + GitLab PR/MR clients behind a `Forge` interface. |
-| `updater.py` | Orchestrate clone → bump → push → open MR. |
-| `cli.py` | argparse front end; `depfresh` (scan) and `depfresh update`. |
+The modules split across two packages: the MIT **`depfresh`** core (scan → check
+→ bump-plan) and the AGPL/commercial **`depfresh-pro`** add-on (the `update`
+automation). The core never imports pro; `depfresh update` is wired in at runtime
+via the `depfresh.commands` entry point.
+
+| Package | Module | Responsibility |
+|---------|--------|----------------|
+| `depfresh` | `scanner.py` | Walk a tree, skip ignored dirs, dispatch files to parsers. |
+| `depfresh` | `parsers/` | One family per module; manifest text → `Dependency` objects. Registered in `parsers/registry.py` (`PARSERS`). |
+| `depfresh` | `models.py` | `Dependency`, `ManifestResult`, `ScanResult` dataclasses. |
+| `depfresh` | `versioning.py` | Best-effort version extraction, comparison, and `bump_constraint`. |
+| `depfresh` | `resolver.py` | Per-ecosystem registry clients + parallel `check_updates`. The only place the base scan's network lives. |
+| `depfresh` | `bump.py` | Group outdated deps into a package-centric `BumpPlan`. |
+| `depfresh` | `config.py` | Merge config from files + env + CLI; registry and forge auth. |
+| `depfresh` | `cli.py` | argparse front end for `depfresh` (scan); dispatches add-on commands. |
+| `depfresh-pro` | `editors/` | Format-preserving version write-back; registered in `editors/registry.py` (`EDITORS`). |
+| `depfresh-pro` | `vcs.py` | Thin `git` CLI wrapper (clone/branch/commit/push). |
+| `depfresh-pro` | `forge/` | GitHub + GitLab PR/MR clients behind a `Forge` interface. |
+| `depfresh-pro` | `updater.py` | Orchestrate clone → bump → push → open MR. |
+| `depfresh-pro` | `cli.py` | The `depfresh update` subcommand (entry point). |
 
 ## Design principles
 

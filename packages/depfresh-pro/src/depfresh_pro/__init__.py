@@ -7,7 +7,7 @@ and depends downward on it — the core never depends on this package.
 
 from depfresh_pro.updater import UpdateGroup, UpdateRun, run_update
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "UpdateGroup",
