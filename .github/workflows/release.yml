@@ -1,0 +1,62 @@
+name: Release
+
+# Auto-tag and release when the core version (packages/depfresh/pyproject.toml)
+# changes on main. main is protected and requires CI before merge, so commits
+# here are already green.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # full history + tags for the existence check and notes
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Resolve version from packages/depfresh/pyproject.toml
+        id: ver
+        run: |
+          version="$(python -c 'import tomllib; print(tomllib.load(open("packages/depfresh/pyproject.toml","rb"))["project"]["version"])')"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Has this version already been released?
+        id: check
+        run: |
+          if git rev-parse -q --verify "refs/tags/${{ steps.ver.outputs.tag }}" >/dev/null; then
+            echo "create=false" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.ver.outputs.tag }} already exists — nothing to release."
+          else
+            echo "create=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build both packages
+        if: steps.check.outputs.create == 'true'
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build packages/depfresh
+          python -m build packages/depfresh-pro
+
+      - name: Tag and publish release (auto-generated notes)
+        if: steps.check.outputs.create == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.ver.outputs.tag }}" \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.ver.outputs.tag }}" \
+            --generate-notes \
+            packages/depfresh/dist/* packages/depfresh-pro/dist/*

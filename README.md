@@ -12,6 +12,11 @@ The scan itself is **offline and stdlib-only** (no third-party runtime
 dependencies). Network access happens only when you ask for update checks, and
 every registry endpoint is configurable so private/internal mirrors work too.
 
+> **Open-core.** This repo has two packages: the **`depfresh`** core (scan,
+> check-updates, bump-plan) is **MIT**; the **`depfresh-pro`** add-on (the
+> `update` automation that opens PRs/MRs) is **AGPL-3.0-or-later or commercial**.
+> See [LICENSING.md](LICENSING.md).
+
 ```console
 $ depfresh --check-updates
 Scanned: .
@@ -59,22 +64,29 @@ frontend/package.json  [node/npm]
 
 Requires **Python 3.11+** (it relies on the stdlib `tomllib`).
 
-Install the latest from GitHub:
+Install the **MIT core** (scanning + update checks):
 
 ```console
-pip install git+https://github.com/hpamanji/depfresh.git
+pip install "depfresh @ git+https://github.com/hpamanji/depfresh.git#subdirectory=packages/depfresh"
 ```
 
-Or from a clone:
+For the **`update`** automation (AGPL/commercial), also install `depfresh-pro`,
+which makes `depfresh update` available:
+
+```console
+pip install "depfresh-pro @ git+https://github.com/hpamanji/depfresh.git#subdirectory=packages/depfresh-pro"
+```
+
+Or from a clone (editable, both packages):
 
 ```console
 git clone https://github.com/hpamanji/depfresh.git
 cd depfresh
-pip install .
+pip install -e packages/depfresh        # core only
+pip install -e packages/depfresh-pro    # adds `depfresh update`
 ```
 
-This installs a `depfresh` command. You can also run it without installing via
-`python -m depfresh`.
+The core installs a `depfresh` command (also runnable via `python -m depfresh`).
 
 ## Usage
 
@@ -136,6 +148,9 @@ Boolean flags use the `--flag`/`--no-flag` form, so a value enabled in a config
 file can be overridden from the command line in either direction.
 
 ## Updating dependencies (open PRs/MRs)
+
+> Provided by the **`depfresh-pro`** package (AGPL-3.0-or-later / commercial).
+> Install it (see [Installation](#installation)) to enable `depfresh update`.
 
 `depfresh update` closes the loop: it clones a repo, bumps outdated **declared
 manifests** in place (preserving formatting), pushes a branch, and opens a pull
@@ -261,4 +276,10 @@ development setup and a step-by-step guide, and please review our
 
 ## License
 
-[MIT](LICENSE) © Hemachandar Pamanji
+Open-core, licensed **per package** (see [LICENSING.md](LICENSING.md)):
+
+- **`depfresh`** core — [MIT](packages/depfresh/LICENSE)
+- **`depfresh-pro`** — [AGPL-3.0-or-later](packages/depfresh-pro/LICENSE) **or**
+  [commercial](packages/depfresh-pro/COMMERCIAL.md)
+
+© Hemachandar Pamanji

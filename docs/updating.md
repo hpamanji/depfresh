@@ -1,5 +1,9 @@
 # Updating dependencies
 
+> Provided by the **`depfresh-pro`** package (AGPL-3.0-or-later / commercial),
+> not the MIT core. Install it (`pip install depfresh-pro`) to enable
+> `depfresh update`. See [LICENSING.md](../LICENSING.md).
+
 `depfresh update` closes the loop: it clones a repository, finds outdated
 dependencies (the same scan → check → bump pipeline), rewrites the **declared
 manifests** in place, pushes branch(es), and opens a pull request (GitHub) or
