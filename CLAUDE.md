@@ -1,6 +1,6 @@
-# CLAUDE.md
+# Repository guide
 
-Guidance for Claude Code (and humans) working in this repository.
+Commands, layout, and conventions for working in this repository.
 
 ## Project
 
@@ -81,5 +81,5 @@ Adding a parser, registry, editor, or forge is small and documented in
 
 - `main` is protected and requires the **`CI success`** check; land changes via a
   pull request, not direct pushes.
-- Keep commit messages factual and imperative. **Do not add AI/Claude co-author
-  trailers** to commits.
+- Keep commit messages factual and imperative. **Do not add automated/bot
+  co-author trailers** to commits.
