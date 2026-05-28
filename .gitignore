@@ -11,3 +11,6 @@ build/
 dist/
 .venv/
 venv/
+
+# Claude Code — user-local settings (the shared .claude/settings.json is tracked)
+.claude/settings.local.json

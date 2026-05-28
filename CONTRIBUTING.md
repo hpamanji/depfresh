@@ -48,6 +48,9 @@ tests goes through an injected fake `fetch`, never the network. Please add or
 update tests for any behavior change, and make sure the whole suite is green
 before opening a pull request.
 
+> A quick-reference of the commands, layout, and conventions also lives in
+> [`CLAUDE.md`](CLAUDE.md) (used by Claude Code and handy for everyone).
+
 ## Project layout
 
 ```
