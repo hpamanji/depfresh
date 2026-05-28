@@ -141,6 +141,7 @@ class Settings:
     base: str | None = None  # override the target/default branch
     exclude: list[str] | None = None  # package names to skip
     dry_run: bool | None = None
+    delete_branch: bool | None = None  # delete update branches once merged
 
     def merged(self, other: Settings) -> Settings:
         def pick(a, b):
@@ -163,6 +164,7 @@ class Settings:
             base=pick(self.base, other.base),
             exclude=pick(self.exclude, other.exclude),
             dry_run=pick(self.dry_run, other.dry_run),
+            delete_branch=pick(self.delete_branch, other.delete_branch),
         )
 
 

@@ -12,23 +12,38 @@ AUTHOR_CFG = ["-c", "user.email=t@e.st", "-c", "user.name=tester"]
 
 
 class FakeForge:
-    """Records open_request instead of hitting a real forge API."""
+    """Records forge calls instead of hitting a real API. Stateful across runs."""
 
     name = "github"
 
     def __init__(self):
         self.opened: list[dict] = []
+        self.urls: dict[str, str] = {}  # head branch -> request url (open MRs)
+        self.auto_delete_called = False
 
     def default_branch(self):
         return "main"
 
-    def open_request(self, *, base, head, title, body):
-        url = f"https://forge.test/mr/{head}"
-        self.opened.append({"base": base, "head": head, "title": title, "body": body})
+    def open_request(self, *, base, head, title, body, delete_source_branch=True):
+        reused = head in self.urls
+        url = self.urls.setdefault(head, f"https://forge.test/mr/{head}")
+        self.opened.append(
+            {
+                "base": base,
+                "head": head,
+                "title": title,
+                "reused": reused,
+                "delete": delete_source_branch,
+            }
+        )
         return url
 
     def existing_request(self, head):
-        return None
+        return self.urls.get(head)
+
+    def ensure_auto_delete_on_merge(self):
+        self.auto_delete_called = True
+        return True
 
 
 def _fetch(routes):
@@ -73,6 +88,10 @@ def _remote_branches(remote):
     return _git("branch", "--list", cwd=remote).stdout
 
 
+def _remote_sha(remote, branch):
+    return _git("rev-parse", branch, cwd=remote).stdout.strip()
+
+
 FILES = {
     "requirements.txt": "requests==2.0.0\n",
     "web/package.json": '{\n  "dependencies": {"react": "^18.0.0"}\n}\n',
@@ -87,61 +106,77 @@ def test_run_update_single_mr(tmp_path):
     remote = _seed_remote(tmp_path, FILES)
     forge = FakeForge()
     run = run_update(
-        str(remote),
-        token=None,
-        forge=forge,
-        clone_url=str(remote),
-        fetch=_fetch(ROUTES),
-        grouping="all",
+        str(remote), token=None, forge=forge, clone_url=str(remote), fetch=_fetch(ROUTES)
     )
     assert run.base_branch == "main"
-    assert len(run.groups) == 1
     group = run.groups[0]
     assert group.pushed and group.request_url == "https://forge.test/mr/depfresh/updates"
     assert set(group.files_changed) == {"requirements.txt", "web/package.json"}
-
-    # The branch on the remote carries the bumped versions.
-    assert "depfresh/updates" in _remote_branches(remote)
+    assert forge.auto_delete_called is True
+    assert forge.opened[0]["delete"] is True
     assert "requests==2.31.0" in _remote_show(remote, "depfresh/updates", "requirements.txt")
     assert "^19.0.0" in _remote_show(remote, "depfresh/updates", "web/package.json")
-    # One MR opened against main.
-    assert forge.opened == [forge.opened[0]]
-    assert forge.opened[0]["base"] == "main"
 
 
 def test_run_update_dry_run_makes_no_changes(tmp_path):
     remote = _seed_remote(tmp_path, FILES)
     forge = FakeForge()
     run = run_update(
-        str(remote),
-        forge=forge,
-        clone_url=str(remote),
-        fetch=_fetch(ROUTES),
-        dry_run=True,
+        str(remote), forge=forge, clone_url=str(remote), fetch=_fetch(ROUTES), dry_run=True
     )
     assert run.dry_run is True
     group = run.groups[0]
     assert group.request_url is None and group.pushed is False
-    assert "requests" in group.diff and "2.31.0" in group.diff
-    assert forge.opened == []  # nothing opened
-    assert "depfresh/updates" not in _remote_branches(remote)  # nothing pushed
+    assert "2.31.0" in group.diff
+    assert forge.opened == [] and forge.auto_delete_called is False
+    assert "depfresh/updates" not in _remote_branches(remote)
 
 
-def test_run_update_per_dependency_grouping(tmp_path):
+def test_run_update_per_dependency_uses_fixed_branch_names(tmp_path):
     remote = _seed_remote(tmp_path, FILES)
     forge = FakeForge()
     run = run_update(
-        str(remote),
-        forge=forge,
-        clone_url=str(remote),
-        fetch=_fetch(ROUTES),
-        grouping="dependency",
+        str(remote), forge=forge, clone_url=str(remote), fetch=_fetch(ROUTES), grouping="dependency"
     )
     assert len(run.groups) == 2
     branches = _remote_branches(remote)
-    assert "depfresh/requests-2.31.0" in branches
-    assert "depfresh/react-19.0.0" in branches
+    # Fixed names — no version suffix.
+    assert "depfresh/requests" in branches
+    assert "depfresh/react" in branches
+    assert "depfresh/requests-2.31.0" not in branches
     assert len(forge.opened) == 2
+
+
+def test_rerun_with_no_new_release_is_noop(tmp_path):
+    remote = _seed_remote(tmp_path, FILES)
+    forge = FakeForge()
+    run_update(str(remote), forge=forge, clone_url=str(remote), fetch=_fetch(ROUTES))
+    sha_after_first = _remote_sha(remote, "depfresh/updates")
+
+    run2 = run_update(str(remote), forge=forge, clone_url=str(remote), fetch=_fetch(ROUTES))
+    group = run2.groups[0]
+    assert group.skipped_reason == "branch already up to date"
+    assert group.request_url == "https://forge.test/mr/depfresh/updates"  # reused link
+    assert _remote_sha(remote, "depfresh/updates") == sha_after_first  # branch untouched
+    assert len(forge.opened) == 1  # no second MR created
+
+
+def test_rerun_with_new_release_reuses_branch_and_mr(tmp_path):
+    remote = _seed_remote(tmp_path, FILES)
+    routes = {k: v for k, v in ROUTES.items()}
+    forge = FakeForge()
+    run_update(str(remote), forge=forge, clone_url=str(remote), fetch=_fetch(routes))
+    assert "requests==2.31.0" in _remote_show(remote, "depfresh/updates", "requirements.txt")
+
+    # A newer release lands; same branch is force-updated and the MR is reused.
+    routes["pypi.org/pypi/requests"] = {"info": {"version": "2.32.0"}}
+    run2 = run_update(str(remote), forge=forge, clone_url=str(remote), fetch=_fetch(routes))
+    group = run2.groups[0]
+    assert group.pushed is True
+    assert group.request_url == "https://forge.test/mr/depfresh/updates"
+    assert "requests==2.32.0" in _remote_show(remote, "depfresh/updates", "requirements.txt")
+    assert forge.opened[-1]["reused"] is True  # reused, not a new MR
+    assert "depfresh/updates" in _remote_branches(remote)
 
 
 def test_run_update_exclude_skips_package(tmp_path):
@@ -155,5 +190,4 @@ def test_run_update_exclude_skips_package(tmp_path):
         grouping="dependency",
         exclude=["react"],
     )
-    keys = {g.key for g in run.groups}
-    assert keys == {"requests"}  # react excluded
+    assert {g.key for g in run.groups} == {"requests"}

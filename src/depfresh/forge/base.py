@@ -54,9 +54,22 @@ class Forge(ABC):
     def default_branch(self) -> str: ...
 
     @abstractmethod
-    def open_request(self, *, base: str, head: str, title: str, body: str) -> str:
-        """Open (or find an existing) PR/MR from ``head`` into ``base``; return its URL."""
+    def open_request(
+        self, *, base: str, head: str, title: str, body: str, delete_source_branch: bool = True
+    ) -> str:
+        """Open a PR/MR from ``head`` into ``base`` and return its URL.
+
+        If one is already open for ``head``, reuse it (refreshing title/body)
+        instead of creating a duplicate. ``delete_source_branch`` asks the forge
+        to remove the branch once the request merges, where supported per-request.
+        """
 
     @abstractmethod
     def existing_request(self, head: str) -> str | None:
         """URL of an already-open request for ``head``, if any."""
+
+    @abstractmethod
+    def ensure_auto_delete_on_merge(self) -> bool:
+        """Best-effort: ensure merged update branches are deleted. Returns whether
+        it could be guaranteed (GitHub flips a repo setting; GitLab handles it
+        per-request, so this is a no-op there)."""

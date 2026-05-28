@@ -27,21 +27,43 @@ class GitHubForge(Forge):
         raise_for_status(resp)
         return resp.json().get("default_branch") or "main"
 
-    def open_request(self, *, base: str, head: str, title: str, body: str) -> str:
+    def open_request(
+        self, *, base: str, head: str, title: str, body: str, delete_source_branch: bool = True
+    ) -> str:
+        existing = self._find_open(head)
+        if existing is not None:
+            url, number = existing
+            self.request(
+                "PATCH",
+                f"{self.api}/repos/{self.repo.path}/pulls/{number}",
+                headers=self._headers(),
+                body={"title": title, "body": body},
+            )
+            return url
         resp = self.request(
             "POST",
             f"{self.api}/repos/{self.repo.path}/pulls",
             headers=self._headers(),
             body={"title": title, "head": head, "base": base, "body": body},
         )
-        if resp.status == 422:  # commonly: a PR for this head already exists
-            existing = self.existing_request(head)
-            if existing:
-                return existing
         raise_for_status(resp)
         return resp.json().get("html_url", "")
 
     def existing_request(self, head: str) -> str | None:
+        found = self._find_open(head)
+        return found[0] if found else None
+
+    def ensure_auto_delete_on_merge(self) -> bool:
+        # GitHub has no per-PR flag; deletion is a repo-level setting.
+        resp = self.request(
+            "PATCH",
+            f"{self.api}/repos/{self.repo.path}",
+            headers=self._headers(),
+            body={"delete_branch_on_merge": True},
+        )
+        return resp.status < 300
+
+    def _find_open(self, head: str) -> tuple[str, int] | None:
         query = urllib.parse.urlencode({"head": f"{self.repo.owner}:{head}", "state": "open"})
         resp = self.request(
             "GET", f"{self.api}/repos/{self.repo.path}/pulls?{query}", headers=self._headers()
@@ -49,4 +71,6 @@ class GitHubForge(Forge):
         if resp.status >= 300:
             return None
         items = resp.json()
-        return items[0].get("html_url") if items else None
+        if not items:
+            return None
+        return items[0].get("html_url", ""), items[0].get("number")

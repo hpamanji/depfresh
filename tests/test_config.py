@@ -200,6 +200,7 @@ def test_from_json_parses_update_settings():
                     "branch-prefix": "bot/",
                     "exclude": ["left-pad"],
                     "dry-run": True,
+                    "delete-branch": False,
                 }
             }
         )
@@ -208,3 +209,4 @@ def test_from_json_parses_update_settings():
     assert config.settings.branch_prefix == "bot/"
     assert config.settings.exclude == ["left-pad"]
     assert config.settings.dry_run is True
+    assert config.settings.delete_branch is False

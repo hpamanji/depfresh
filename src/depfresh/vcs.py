@@ -42,13 +42,39 @@ def _run(args: Sequence[str], *, cwd: str | Path | None = None, config: Config =
     return proc.stdout
 
 
-def clone(url: str, dest: str | Path, *, config: Config = (), depth: int | None = 1) -> Path:
+def clone(
+    url: str,
+    dest: str | Path,
+    *,
+    config: Config = (),
+    depth: int | None = 1,
+    single_branch: bool = True,
+) -> Path:
     args = ["clone"]
     if depth:
         args += ["--depth", str(depth)]
+    if not single_branch:
+        # Fetch every branch tip so existing bot branches have a remote-tracking
+        # ref (needed for force-with-lease and no-op detection).
+        args.append("--no-single-branch")
     args += [url, str(dest)]
     _run(args, config=config)
     return Path(dest)
+
+
+def remote_ref_exists(repo: str | Path, ref: str) -> bool:
+    """Whether ``ref`` (e.g. ``origin/depfresh/updates``) resolves in the clone."""
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", ref],
+        capture_output=True,
+        text=True,
+    )
+    return proc.returncode == 0
+
+
+def tree_hash(repo: str | Path, ref: str) -> str:
+    """The tree object id for ``ref`` — equal trees mean identical content."""
+    return _run(["rev-parse", f"{ref}^{{tree}}"], cwd=repo).strip()
 
 
 def current_branch(repo: str | Path) -> str:

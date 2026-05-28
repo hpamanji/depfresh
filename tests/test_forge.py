@@ -70,6 +70,7 @@ def test_detect_forge_unknown_host_requires_kind():
 
 def test_github_default_branch_and_open_pr():
     routes = [
+        ("GET", "/pulls?", _resp(200, [])),  # no existing PR (checked first)
         ("GET", "/repos/o/n", _resp(200, {"default_branch": "trunk"})),
         ("POST", "/repos/o/n/pulls", _resp(201, {"html_url": "https://github.com/o/n/pull/7"})),
     ]
@@ -83,14 +84,31 @@ def test_github_default_branch_and_open_pr():
     assert post[2]["Authorization"] == "Bearer tok"
 
 
-def test_github_open_pr_returns_existing_on_422():
+def test_github_open_pr_reuses_and_updates_existing():
     routes = [
-        ("GET", "/pulls?", _resp(200, [{"html_url": "https://github.com/o/n/pull/3"}])),
-        ("POST", "/pulls", _resp(422, {"message": "already exists"})),
+        (
+            "GET",
+            "/pulls?",
+            _resp(200, [{"html_url": "https://github.com/o/n/pull/3", "number": 3}]),
+        ),
+        ("PATCH", "/pulls/3", _resp(200, {"html_url": "https://github.com/o/n/pull/3"})),
     ]
-    req, _ = recording_request(routes)
+    req, calls = recording_request(routes)
     forge = detect_forge("https://github.com/o/n", "tok", req)
-    assert forge.open_request(base="main", head="h", title="t", body="b").endswith("/pull/3")
+    url = forge.open_request(base="main", head="h", title="new title", body="new body")
+    assert url.endswith("/pull/3")
+    # Found the open PR, updated it via PATCH, and did NOT create a new one.
+    patch = next(c for c in calls if c[0] == "PATCH")
+    assert patch[3] == {"title": "new title", "body": "new body"}
+    assert not any(c[0] == "POST" for c in calls)
+
+
+def test_github_ensure_auto_delete_on_merge():
+    routes = [("PATCH", "/repos/o/n", _resp(200, {"delete_branch_on_merge": True}))]
+    req, calls = recording_request(routes)
+    forge = detect_forge("https://github.com/o/n", "tok", req)
+    assert forge.ensure_auto_delete_on_merge() is True
+    assert calls[0][3] == {"delete_branch_on_merge": True}
 
 
 def test_gitlab_default_branch_and_open_mr():
@@ -112,18 +130,24 @@ def test_gitlab_default_branch_and_open_mr():
     post = next(c for c in calls if c[0] == "POST")
     assert post[3]["source_branch"] == "depfresh/updates"
     assert post[3]["target_branch"] == "main"
+    assert post[3]["remove_source_branch"] is True  # auto-delete on merge
 
 
-def test_gitlab_open_mr_short_circuits_when_existing():
+def test_gitlab_open_mr_reuses_and_updates_existing():
     routes = [
-        (
-            "GET",
-            "/merge_requests?",
-            _resp(200, [{"web_url": "https://gitlab.com/g/p/-/merge_requests/9"}]),
-        ),
+        ("GET", "/merge_requests?", _resp(200, [{"web_url": ".../merge_requests/9", "iid": 9}])),
+        ("PUT", "/merge_requests/9", _resp(200, {"web_url": ".../merge_requests/9"})),
     ]
     req, calls = recording_request(routes)
     forge = detect_forge("https://gitlab.com/g/p", "tok", req)
     url = forge.open_request(base="main", head="h", title="t", body="b")
     assert url.endswith("/merge_requests/9")
-    assert not any(c[0] == "POST" for c in calls)  # no MR created
+    assert any(c[0] == "PUT" for c in calls)  # updated existing MR
+    assert not any(c[0] == "POST" for c in calls)  # no new MR created
+
+
+def test_gitlab_ensure_auto_delete_is_noop():
+    req, calls = recording_request([])
+    forge = detect_forge("https://gitlab.com/g/p", "tok", req)
+    assert forge.ensure_auto_delete_on_merge() is True
+    assert calls == []  # handled per-MR, no extra API call

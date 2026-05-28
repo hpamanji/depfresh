@@ -159,6 +159,7 @@ depfresh update https://gitlab.com/me/app --token "$GITLAB_TOKEN" --grouping dep
 | `--base BRANCH` | Target branch for the MR (default: the repo's default branch). |
 | `--exclude PKG` | Leave a package untouched (repeatable). |
 | `-e, --ecosystem NAME` | Only update this ecosystem (repeatable). |
+| `--delete-branch` / `--no-delete-branch` | Delete update branches once their PR/MR merges (default: on). |
 | `--dry-run` | Show the diff and planned MRs without pushing or opening anything. |
 | `--json` | Emit the result as JSON. |
 
@@ -168,8 +169,9 @@ Notes:
   lockfiles are left untouched (regenerate them with your package manager).
 - The token needs permission to push branches and open PRs/MRs. It is passed to
   git per-invocation and never written to the clone's config.
-- Re-running is safe: branches are deterministic and an already-open PR/MR for a
-  branch is reused instead of duplicated.
+- **Idempotent.** Branch names are fixed, so re-running reuses the same branch
+  and refreshes the already-open PR/MR (or no-ops when nothing changed) instead
+  of piling up duplicates. Merged branches are auto-deleted by default.
 
 ## Configuration
 

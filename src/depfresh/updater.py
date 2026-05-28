@@ -86,10 +86,12 @@ def _body(items: Sequence[BumpItem]) -> str:
 
 def _plan_groups(plan: BumpPlan, grouping: str, prefix: str) -> list[UpdateGroup]:
     if grouping == "dependency":
+        # Branch name is fixed per package (no version) so re-runs reuse the same
+        # branch/MR as new releases land; the version only appears in the title.
         return [
             UpdateGroup(
                 key=item.name,
-                branch=f"{prefix}{_slug(item.name)}-{item.latest}",
+                branch=f"{prefix}{_slug(item.name)}",
                 title=f"Update {item.name} to {item.latest}",
                 items=[item],
             )
@@ -178,6 +180,7 @@ def run_update(
     exclude: Sequence[str] = (),
     ecosystems: Sequence[str] | None = None,
     dry_run: bool = False,
+    delete_branch: bool = True,
     timeout: float = 10.0,
     max_workers: int = 16,
     fetch=None,
@@ -205,9 +208,18 @@ def run_update(
     workdir = Path(tempfile.mkdtemp(prefix="depfresh-"))
     clone_dir = workdir / "repo"
     try:
-        vcs.clone(clone_url or repo_url, clone_dir, config=auth_cfg, depth=1)
+        # --no-single-branch so existing bot branches get a remote-tracking ref
+        # (enables force-with-lease and no-op detection on re-runs).
+        vcs.clone(clone_url or repo_url, clone_dir, config=auth_cfg, depth=1, single_branch=False)
         default_local = vcs.current_branch(clone_dir)
         base_branch = base or _safe_default_branch(forge) or default_local
+
+        if delete_branch and not dry_run:
+            # Best-effort: configure the forge to drop merged branches.
+            try:
+                forge.ensure_auto_delete_on_merge()
+            except Exception:  # noqa: BLE001 - never fail the run over a settings call
+                pass
 
         result = scan(clone_dir)
         updates = check_updates(
@@ -218,7 +230,16 @@ def run_update(
 
         run = UpdateRun(repo=repo_url, base_branch=base_branch, dry_run=dry_run)
         for group in _plan_groups(plan, grouping, branch_prefix):
-            _process_group(group, clone_dir, default_local, base_branch, dry_run, auth_cfg, forge)
+            _process_group(
+                group,
+                clone_dir,
+                default_local,
+                base_branch,
+                dry_run,
+                auth_cfg,
+                forge,
+                delete_branch,
+            )
             run.groups.append(group)
         return run
     finally:
@@ -250,8 +271,13 @@ def _process_group(
     dry_run: bool,
     auth_cfg,
     forge: Forge,
+    delete_branch: bool,
 ) -> None:
+    remote_ref = f"origin/{group.branch}"
+    branch_exists = vcs.remote_ref_exists(clone_dir, remote_ref)
+
     if not dry_run:
+        # Always cut from the current default so the branch is "default + bumps".
         vcs.create_branch(clone_dir, group.branch)
     group.files_changed = _apply_items(clone_dir, group.items)
 
@@ -268,9 +294,22 @@ def _process_group(
 
     vcs.stage(clone_dir, group.files_changed)
     vcs.commit(clone_dir, group.title)
-    vcs.push(clone_dir, group.branch, config=auth_cfg)
+
+    # Idempotent re-run: if the bumped tree already matches what's on the remote
+    # branch, don't churn — keep the branch and reuse the open request's link.
+    if branch_exists and vcs.tree_hash(clone_dir, "HEAD") == vcs.tree_hash(clone_dir, remote_ref):
+        group.skipped_reason = "branch already up to date"
+        group.request_url = forge.existing_request(group.branch)
+        vcs.checkout(clone_dir, default_local)
+        return
+
+    vcs.push(clone_dir, group.branch, config=auth_cfg, force=branch_exists)
     group.pushed = True
     group.request_url = forge.open_request(
-        base=base_branch, head=group.branch, title=group.title, body=_body(group.items)
+        base=base_branch,
+        head=group.branch,
+        title=group.title,
+        body=_body(group.items),
+        delete_source_branch=delete_branch,
     )
     vcs.checkout(clone_dir, default_local)

@@ -382,6 +382,12 @@ def build_update_parser() -> argparse.ArgumentParser:
         help="Show the changes and planned MRs without pushing or opening anything.",
     )
     parser.add_argument(
+        "--delete-branch",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Delete update branches once their PR/MR merges (default: enabled).",
+    )
+    parser.add_argument(
         "--json",
         action=argparse.BooleanOptionalAction,
         default=None,
@@ -452,6 +458,7 @@ def _main_update(argv: list[str]) -> int:
     branch_prefix = _resolve(args.branch_prefix, s.branch_prefix, "depfresh/")
     base = _resolve(args.base, s.base, None)
     dry_run = _resolve(args.dry_run, s.dry_run, False)
+    delete_branch = _resolve(args.delete_branch, s.delete_branch, True)
     json_out = _resolve(args.json, s.json, False)
     timeout = _resolve(args.timeout, s.timeout, 10.0)
     jobs = _resolve(args.jobs, s.jobs, 16)
@@ -469,6 +476,7 @@ def _main_update(argv: list[str]) -> int:
             exclude=exclude,
             ecosystems=ecosystems,
             dry_run=dry_run,
+            delete_branch=delete_branch,
             timeout=timeout,
             max_workers=jobs,
         )

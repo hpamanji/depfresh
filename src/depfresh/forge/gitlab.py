@@ -32,10 +32,23 @@ class GitLabForge(Forge):
         raise_for_status(resp)
         return resp.json().get("default_branch") or "main"
 
-    def open_request(self, *, base: str, head: str, title: str, body: str) -> str:
-        existing = self.existing_request(head)
-        if existing:
-            return existing
+    def open_request(
+        self, *, base: str, head: str, title: str, body: str, delete_source_branch: bool = True
+    ) -> str:
+        existing = self._find_open(head)
+        if existing is not None:
+            url, iid = existing
+            self.request(
+                "PUT",
+                f"{self.api}/projects/{self.project_id}/merge_requests/{iid}",
+                headers=self._headers(),
+                body={
+                    "title": title,
+                    "description": body,
+                    "remove_source_branch": delete_source_branch,
+                },
+            )
+            return url
         resp = self.request(
             "POST",
             f"{self.api}/projects/{self.project_id}/merge_requests",
@@ -45,12 +58,21 @@ class GitLabForge(Forge):
                 "target_branch": base,
                 "title": title,
                 "description": body,
+                "remove_source_branch": delete_source_branch,
             },
         )
         raise_for_status(resp)
         return resp.json().get("web_url", "")
 
     def existing_request(self, head: str) -> str | None:
+        found = self._find_open(head)
+        return found[0] if found else None
+
+    def ensure_auto_delete_on_merge(self) -> bool:
+        # Handled per-request via remove_source_branch in open_request.
+        return True
+
+    def _find_open(self, head: str) -> tuple[str, int] | None:
         query = urllib.parse.urlencode({"source_branch": head, "state": "opened"})
         resp = self.request(
             "GET",
@@ -60,4 +82,6 @@ class GitLabForge(Forge):
         if resp.status >= 300:
             return None
         items = resp.json()
-        return items[0].get("web_url") if items else None
+        if not items:
+            return None
+        return items[0].get("web_url", ""), items[0].get("iid")

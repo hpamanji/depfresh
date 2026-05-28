@@ -54,6 +54,7 @@ PR/MR(s). Requires `git`.
 | `-e`, `--ecosystem NAME` | all | Only update this ecosystem (repeatable). |
 | `--exclude PKG` | — | Leave a package untouched (repeatable). |
 | `--branch-prefix P` | `depfresh/` | Branch name prefix. |
+| `--delete-branch` / `--no-delete-branch` | on | Delete update branches once their PR/MR merges. |
 | `--dry-run` / `--no-dry-run` | off | Show changes/MRs without pushing or opening. |
 | `--json` / `--no-json` | off | Emit the result as JSON. |
 | `--timeout SECONDS` | 10 | Per-request registry timeout. |
