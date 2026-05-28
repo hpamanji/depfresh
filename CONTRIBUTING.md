@@ -24,18 +24,22 @@ a change we can't merge.
 
 ## Development setup
 
-depfresh has **no third-party runtime dependencies**; the only dev dependency is
-`pytest`.
+depfresh is an **open-core monorepo** with two packages under `packages/`:
+`depfresh` (MIT core) and `depfresh-pro` (AGPL/commercial `update` automation).
+Neither has third-party runtime dependencies. Install both editable for dev:
 
 ```console
 git clone https://github.com/hpamanji/depfresh.git
 cd depfresh
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+pip install -e "packages/depfresh[dev]"   # core + dev tools (pytest, ruff, mypy)
+pip install -e packages/depfresh-pro      # the update add-on
 ```
 
-Requires Python 3.11+ (the parsers use the stdlib `tomllib`).
+Requires Python 3.11+ (the parsers use the stdlib `tomllib`). See
+[LICENSING.md](LICENSING.md) for the per-package licensing and the
+features→core dependency rule.
 
 ## Running the tests
 
@@ -51,18 +55,38 @@ before opening a pull request.
 ## Project layout
 
 ```
-src/depfresh/
-  scanner.py         # walks a tree, dispatches files to parsers
-  registry.py        # maps filenames -> parsers (register new parsers here)
-  resolver.py        # registry clients + parallel "latest version" lookups
-  versioning.py      # best-effort version extraction & comparison
-  config.py          # config file / env / CLI merging, private-registry auth
-  bump.py            # groups outdated deps into a package-centric plan
-  cli.py             # argparse front end and output rendering
-  models.py          # Dependency / ManifestResult / ScanResult dataclasses
-  parsers/           # one module per ecosystem
-tests/               # mirrors the package, one test file per area
+packages/
+  depfresh/                 # MIT core
+    src/depfresh/
+      scanner.py            # walks a tree, dispatches files to parsers
+      registry.py           # maps filenames -> parsers (register new parsers here)
+      resolver.py           # registry clients + parallel "latest version" lookups
+      versioning.py         # best-effort version extraction & comparison
+      config.py             # config file / env / CLI merging, registry + forge auth
+      bump.py               # groups outdated deps into a package-centric plan
+      cli.py                # scan CLI + add-on command dispatch
+      models.py             # Dependency / ManifestResult / ScanResult dataclasses
+      parsers/              # one module per ecosystem
+    tests/
+  depfresh-pro/             # AGPL-3.0 / commercial — the `update` automation
+    src/depfresh_pro/
+      editors/              # format-preserving version write-back
+      forge/                # GitHub + GitLab PR/MR clients
+      vcs.py                # git CLI wrapper
+      updater.py            # clone -> bump -> push -> open MR
+      cli.py                # the `update` subcommand (entry point)
+    tests/
 ```
+
+**Dependency rule:** `depfresh-pro` imports `depfresh`, never the reverse. The
+core must stay fully functional without the pro package present.
+
+## Contributing to `depfresh-pro`
+
+Because `depfresh-pro` is dual-licensed (AGPL **or** commercial), contributions
+to it require agreeing to the [Contributor License Agreement](CLA.md) so the
+project can keep offering both licenses. (Have the CLA reviewed by a lawyer
+before relying on it.)
 
 ## Design principles
 
@@ -84,7 +108,7 @@ Keep these in mind so your change fits the codebase:
 Say you want to support a new ecosystem (or another manifest format for an
 existing one):
 
-1. **Create a module** under `src/depfresh/parsers/`, e.g. `elixir.py`.
+1. **Create a module** under `packages/depfresh/src/depfresh/parsers/`, e.g. `elixir.py`.
 2. **Subclass `Parser`** and declare which files it handles and how to parse
    them:
 
@@ -109,7 +133,7 @@ existing one):
    and normalizes empty versions to `None`. Valid scopes include `runtime`,
    `dev`, `optional`, `peer`, `build`, `test`, and `indirect`.
 
-3. **Register it** in `src/depfresh/registry.py` by adding an instance to the
+3. **Register it** in `packages/depfresh/src/depfresh/registry.py` by adding an instance to the
    `PARSERS` tuple.
 4. **Add tests** in `tests/test_parsers.py` with a representative manifest
    snippet, asserting names, versions, and scopes.
@@ -119,7 +143,7 @@ That's all that's needed for the offline scan to pick up the new format.
 ## Adding update checks for an ecosystem
 
 To make `--check-updates` work for a new ecosystem, add a registry client in
-`src/depfresh/resolver.py`:
+`packages/depfresh/src/depfresh/resolver.py`:
 
 1. **Subclass `Registry`**, set `ecosystem` and `default_base_url`, and
    implement `latest(self, name, fetch, config)` returning the newest version
@@ -146,10 +170,10 @@ authentication keep working for the new ecosystem.
 ## Adding an editor (for `depfresh update`)
 
 `depfresh update` rewrites a dependency's version in place. Editors live in
-`src/depfresh/editors/`, mirroring `parsers/`, and do **text-level** replacement
+`packages/depfresh-pro/src/depfresh_pro/editors/`, mirroring `parsers/`, and do **text-level** replacement
 (never parse-and-reserialize, which would lose comments/formatting).
 
-1. **Add an editor module** under `src/depfresh/editors/`, subclassing `Editor`
+1. **Add an editor module** under `packages/depfresh-pro/src/depfresh_pro/editors/`, subclassing `Editor`
    and reusing a shared helper from `editors/base.py`
    (`replace_json_dependency`, `replace_toml_dependency`,
    `replace_requirements_dependency`, `replace_pom_dependency`,

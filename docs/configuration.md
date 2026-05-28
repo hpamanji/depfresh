@@ -61,7 +61,7 @@ Defaults for CLI options, so you don't repeat them. Field names mirror the flags
 (dashes accepted, e.g. `check-updates`): `path`, `json`, `ecosystem`,
 `manifests-only`, `flat`, `check-updates`, `outdated-only`, `bump-plan`,
 `exit-code`, `timeout`, `jobs`, and the update options `grouping`,
-`branch-prefix`, `base`, `exclude`, `dry-run`.
+`branch-prefix`, `base`, `exclude`, `dry-run`, `delete-branch`.
 
 ### `registries`
 

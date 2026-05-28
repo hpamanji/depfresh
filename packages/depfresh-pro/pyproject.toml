@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=82.0.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "depfresh-pro"
+version = "0.1.0"
+description = "Automated dependency-update PRs/MRs for depfresh (AGPL-3.0 or commercial)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "AGPL-3.0-or-later" }
+authors = [{ name = "Hemachandar Pamanji" }]
+keywords = ["dependencies", "updates", "pull-request", "merge-request", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Build Tools",
+    "Typing :: Typed",
+]
+# Builds on the MIT core; uses only the stdlib otherwise (subprocess + urllib).
+dependencies = ["depfresh"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff==0.15.14",
+    "mypy==2.1.0",
+]
+
+[project.scripts]
+depfresh-pro = "depfresh_pro.cli:main_update"
+
+# Makes `depfresh update ...` work when this package is installed, without the
+# MIT core ever importing this package.
+[project.entry-points."depfresh.commands"]
+update = "depfresh_pro.cli:main_update"
+
+[project.urls]
+Homepage = "https://github.com/hpamanji/depfresh"
+Repository = "https://github.com/hpamanji/depfresh"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+depfresh_pro = ["py.typed"]

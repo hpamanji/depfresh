@@ -1,8 +1,10 @@
-"""Make the src-layout package importable in tests without installation."""
+"""Make both src-layout packages importable in tests without installation."""
 
 import sys
 from pathlib import Path
 
-SRC = Path(__file__).parent / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+ROOT = Path(__file__).parent
+for _pkg in ("depfresh", "depfresh-pro"):
+    _src = ROOT / "packages" / _pkg / "src"
+    if str(_src) not in sys.path:
+        sys.path.insert(0, str(_src))

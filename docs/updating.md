@@ -1,5 +1,9 @@
 # Updating dependencies
 
+> Provided by the **`depfresh-pro`** package (AGPL-3.0-or-later / commercial),
+> not the MIT core. Install it (`pip install depfresh-pro`) to enable
+> `depfresh update`. See [LICENSING.md](../LICENSING.md).
+
 `depfresh update` closes the loop: it clones a repository, finds outdated
 dependencies (the same scan → check → bump pipeline), rewrites the **declared
 manifests** in place, pushes branch(es), and opens a pull request (GitHub) or
@@ -84,6 +88,7 @@ depfresh update https://gitlab.com/me/app --token "$GITLAB_TOKEN" --grouping dep
 | `--exclude PKG` | Leave a package untouched (repeatable). |
 | `-e, --ecosystem NAME` | Only update this ecosystem (repeatable). |
 | `--branch-prefix P` | Branch name prefix (default: `depfresh/`). |
+| `--delete-branch` / `--no-delete-branch` | Delete update branches once their PR/MR merges (default: enabled). |
 | `--dry-run` | Show changes and planned MRs without pushing or opening. |
 | `--json` | Emit the result as JSON. |
 
@@ -101,8 +106,31 @@ The token needs permission to **push branches** and **open PRs/MRs**.
 
 ## Idempotency
 
-Branch names are deterministic. If an MR is already open for a branch, depfresh
-reuses it instead of opening a duplicate, so re-running is safe.
+Re-running `depfresh update` (e.g. on a schedule) never piles up duplicate
+branches or MRs:
+
+- **Fixed branch names.** A given update always uses the same branch —
+  `depfresh/updates` (all), `depfresh/<ecosystem>-updates`, or `depfresh/<pkg>`
+  (dependency). The package version appears only in the title, never the branch.
+- **Reuse the open request.** depfresh looks up an already-open PR/MR for the
+  branch and reuses it — refreshing its title/body to the current versions —
+  instead of opening a second one.
+- **Refresh the branch in place.** If a newer release lands, the same branch is
+  force-updated (with lease) to the new versions.
+- **No-op when nothing changed.** If the recomputed branch is identical to what's
+  already pushed, depfresh skips the push and the API call entirely — clean
+  re-runs, no CI churn.
+
+## Branch cleanup
+
+By default depfresh asks the forge to delete the update branch once its PR/MR
+merges, so branches don't accumulate:
+
+- **GitLab** — set per-MR via `remove_source_branch`.
+- **GitHub** — there's no per-PR flag, so depfresh enables the repository's
+  *"Automatically delete head branches"* setting (best-effort; needs admin on the
+  token). This is repo-wide; disable with `--no-delete-branch` if you'd rather
+  not change the setting.
 
 ## Limitations (v1)
 

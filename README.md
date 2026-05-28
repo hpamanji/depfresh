@@ -12,6 +12,11 @@ The scan itself is **offline and stdlib-only** (no third-party runtime
 dependencies). Network access happens only when you ask for update checks, and
 every registry endpoint is configurable so private/internal mirrors work too.
 
+> **Open-core.** This repo has two packages: the **`depfresh`** core (scan,
+> check-updates, bump-plan) is **MIT**; the **`depfresh-pro`** add-on (the
+> `update` automation that opens PRs/MRs) is **AGPL-3.0-or-later or commercial**.
+> See [LICENSING.md](LICENSING.md).
+
 ```console
 $ depfresh --check-updates
 Scanned: .
@@ -59,22 +64,29 @@ frontend/package.json  [node/npm]
 
 Requires **Python 3.11+** (it relies on the stdlib `tomllib`).
 
-Install the latest from GitHub:
+Install the **MIT core** (scanning + update checks):
 
 ```console
-pip install git+https://github.com/hpamanji/depfresh.git
+pip install "depfresh @ git+https://github.com/hpamanji/depfresh.git#subdirectory=packages/depfresh"
 ```
 
-Or from a clone:
+For the **`update`** automation (AGPL/commercial), also install `depfresh-pro`,
+which makes `depfresh update` available:
+
+```console
+pip install "depfresh-pro @ git+https://github.com/hpamanji/depfresh.git#subdirectory=packages/depfresh-pro"
+```
+
+Or from a clone (editable, both packages):
 
 ```console
 git clone https://github.com/hpamanji/depfresh.git
 cd depfresh
-pip install .
+pip install -e packages/depfresh        # core only
+pip install -e packages/depfresh-pro    # adds `depfresh update`
 ```
 
-This installs a `depfresh` command. You can also run it without installing via
-`python -m depfresh`.
+The core installs a `depfresh` command (also runnable via `python -m depfresh`).
 
 ## Usage
 
@@ -137,6 +149,9 @@ file can be overridden from the command line in either direction.
 
 ## Updating dependencies (open PRs/MRs)
 
+> Provided by the **`depfresh-pro`** package (AGPL-3.0-or-later / commercial).
+> Install it (see [Installation](#installation)) to enable `depfresh update`.
+
 `depfresh update` closes the loop: it clones a repo, bumps outdated **declared
 manifests** in place (preserving formatting), pushes a branch, and opens a pull
 request (GitHub) or merge request (GitLab) against the default branch.
@@ -159,6 +174,7 @@ depfresh update https://gitlab.com/me/app --token "$GITLAB_TOKEN" --grouping dep
 | `--base BRANCH` | Target branch for the MR (default: the repo's default branch). |
 | `--exclude PKG` | Leave a package untouched (repeatable). |
 | `-e, --ecosystem NAME` | Only update this ecosystem (repeatable). |
+| `--delete-branch` / `--no-delete-branch` | Delete update branches once their PR/MR merges (default: on). |
 | `--dry-run` | Show the diff and planned MRs without pushing or opening anything. |
 | `--json` | Emit the result as JSON. |
 
@@ -168,8 +184,9 @@ Notes:
   lockfiles are left untouched (regenerate them with your package manager).
 - The token needs permission to push branches and open PRs/MRs. It is passed to
   git per-invocation and never written to the clone's config.
-- Re-running is safe: branches are deterministic and an already-open PR/MR for a
-  branch is reused instead of duplicated.
+- **Idempotent.** Branch names are fixed, so re-running reuses the same branch
+  and refreshes the already-open PR/MR (or no-ops when nothing changed) instead
+  of piling up duplicates. Merged branches are auto-deleted by default.
 
 ## Configuration
 
@@ -259,4 +276,10 @@ development setup and a step-by-step guide, and please review our
 
 ## License
 
-[MIT](LICENSE) © Hemachandar Pamanji
+Open-core, licensed **per package** (see [LICENSING.md](LICENSING.md)):
+
+- **`depfresh`** core — [MIT](packages/depfresh/LICENSE)
+- **`depfresh-pro`** — [AGPL-3.0-or-later](packages/depfresh-pro/LICENSE) **or**
+  [commercial](packages/depfresh-pro/COMMERCIAL.md)
+
+© Hemachandar Pamanji

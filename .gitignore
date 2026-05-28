@@ -9,5 +9,13 @@ htmlcov/
 *.egg-info/
 build/
 dist/
+packages/*/dist/
+packages/*/build/
 .venv/
 venv/
+
+# Claude Code — user-local settings (shared .claude/settings.json is tracked)
+.claude/settings.local.json
+
+# Local project guide — kept on disk but not committed
+CLAUDE.md
