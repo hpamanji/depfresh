@@ -4,9 +4,8 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![CI](https://github.com/hpamanji/depfresh/actions/workflows/ci.yml/badge.svg)](https://github.com/hpamanji/depfresh/actions/workflows/ci.yml)
 
-A Renovate-like dependency scanner that finds and parses dependency manifests
-across many ecosystems — then optionally checks registries to tell you what's
-out of date.
+A dependency scanner that finds and parses dependency manifests across many
+ecosystems — then optionally checks registries to tell you what's out of date.
 
 The scan itself is **offline and stdlib-only** (no third-party runtime
 dependencies). Network access happens only when you ask for update checks, and

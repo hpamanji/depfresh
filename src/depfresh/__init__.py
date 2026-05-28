@@ -1,4 +1,4 @@
-"""depfresh: a Renovate-like dependency scanner.
+"""depfresh: a dependency scanner.
 
 Finds dependency manifests across ecosystems and parses them into a
 structured list of dependencies.
