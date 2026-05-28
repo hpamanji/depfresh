@@ -40,4 +40,3 @@ into the guide for the task you have.
 
 - Project [README](../README.md)
 - [CONTRIBUTING](../CONTRIBUTING.md) and [Code of Conduct](../CODE_OF_CONDUCT.md)
-- [CLAUDE.md](../CLAUDE.md) — commands, layout, and conventions quick-reference
