@@ -56,6 +56,12 @@ _ENV_FIELDS = {
     "DEPFRESH_PASSWORD_": "password",
 }
 
+# Forge auth, keyed by forge kind, e.g. DEPFRESH_FORGE_TOKEN_GITHUB.
+_FORGE_ENV_FIELDS = {
+    "DEPFRESH_FORGE_TOKEN_": "token",
+    "DEPFRESH_FORGE_URL_": "base_url",
+}
+
 
 def _expand(value):
     """Expand ${VAR} / $VAR (and %VAR% on Windows) in string config values."""
@@ -94,6 +100,22 @@ class RegistryConfig:
 
 
 @dataclass
+class ForgeConfig:
+    """Auth + endpoint overrides for a git forge (used by ``depfresh update``)."""
+
+    token: str | None = None
+    base_url: str | None = None  # API base override for self-hosted instances
+    kind: str | None = None  # "github" | "gitlab" — required for self-hosted hosts
+
+    def merged(self, other: ForgeConfig) -> ForgeConfig:
+        return ForgeConfig(
+            token=other.token or self.token,
+            base_url=other.base_url or self.base_url,
+            kind=other.kind or self.kind,
+        )
+
+
+@dataclass
 class Settings:
     """Default values for CLI options, so they need not be passed every run.
 
@@ -113,6 +135,12 @@ class Settings:
     exit_code: bool | None = None
     timeout: float | None = None
     jobs: int | None = None
+    # `depfresh update` options
+    grouping: str | None = None  # all | ecosystem | dependency
+    branch_prefix: str | None = None
+    base: str | None = None  # override the target/default branch
+    exclude: list[str] | None = None  # package names to skip
+    dry_run: bool | None = None
 
     def merged(self, other: Settings) -> Settings:
         def pick(a, b):
@@ -130,6 +158,11 @@ class Settings:
             exit_code=pick(self.exit_code, other.exit_code),
             timeout=pick(self.timeout, other.timeout),
             jobs=pick(self.jobs, other.jobs),
+            grouping=pick(self.grouping, other.grouping),
+            branch_prefix=pick(self.branch_prefix, other.branch_prefix),
+            base=pick(self.base, other.base),
+            exclude=pick(self.exclude, other.exclude),
+            dry_run=pick(self.dry_run, other.dry_run),
         )
 
 
@@ -139,10 +172,14 @@ _SETTINGS_FIELDS = {f for f in Settings.__dataclass_fields__}
 @dataclass
 class DepfreshConfig:
     registries: dict[str, RegistryConfig] = field(default_factory=dict)
+    forges: dict[str, ForgeConfig] = field(default_factory=dict)
     settings: Settings = field(default_factory=Settings)
 
     def for_ecosystem(self, ecosystem: str) -> RegistryConfig:
         return self.registries.get(ecosystem, RegistryConfig())
+
+    def for_forge(self, kind: str) -> ForgeConfig:
+        return self.forges.get(kind.lower(), ForgeConfig())
 
 
 def from_json(text: str) -> DepfreshConfig:
@@ -157,6 +194,13 @@ def from_json(text: str) -> DepfreshConfig:
             username=_expand(raw.get("username")),
             password=_expand(raw.get("password")),
             headers={k: _expand(v) for k, v in (raw.get("headers") or {}).items()},
+        )
+
+    for kind, raw in (data.get("forges") or {}).items():
+        config.forges[kind.lower()] = ForgeConfig(
+            token=_expand(raw.get("token")),
+            base_url=_expand(raw.get("base_url")),
+            kind=raw.get("kind"),
         )
 
     # Accept both "check-updates" and "check_updates" spellings.
@@ -177,6 +221,12 @@ def from_env(environ: Mapping[str, str]) -> DepfreshConfig:
                 if ecosystem:
                     reg = config.registries.setdefault(ecosystem, RegistryConfig())
                     setattr(reg, field_name, value)
+        for prefix, field_name in _FORGE_ENV_FIELDS.items():
+            if key.startswith(prefix):
+                kind = key[len(prefix) :].lower()
+                if kind:
+                    forge = config.forges.setdefault(kind, ForgeConfig())
+                    setattr(forge, field_name, value)
     return config
 
 
@@ -187,6 +237,9 @@ def merge(*configs: DepfreshConfig) -> DepfreshConfig:
         for ecosystem, reg in config.registries.items():
             existing = out.registries.get(ecosystem, RegistryConfig())
             out.registries[ecosystem] = existing.merged(reg)
+        for kind, forge in config.forges.items():
+            existing_forge = out.forges.get(kind, ForgeConfig())
+            out.forges[kind] = existing_forge.merged(forge)
         out.settings = out.settings.merged(config.settings)
     return out
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from depfresh.versioning import compare, extract_current_version, is_outdated
+from depfresh.versioning import bump_constraint, compare, extract_current_version, is_outdated
 
 
 @pytest.mark.parametrize(
@@ -54,3 +54,21 @@ def test_is_outdated():
     assert is_outdated("2.1.0", "2.0.0") is False
     assert is_outdated(None, "2.0.0") is False
     assert is_outdated("1.0.0", None) is False
+
+
+@pytest.mark.parametrize(
+    "current,latest,expected",
+    [
+        ("^18.2.0", "19.0.0", "^19.0.0"),
+        ("==2.28.1", "2.31.0", "==2.31.0"),
+        ("~> 7.0.4", "7.1.0", "~> 7.1.0"),
+        ("v1.2.3", "v1.9.0", "v1.9.0"),  # go: leading v preserved, no doubling
+        ("1.2.3", "1.9.0", "1.9.0"),  # bare pin
+        (">=3.2,<4", "3.9.1", ">=3.9.1,<4"),  # range: first token bumped
+        ("*", "5.0.0", "*"),  # wildcard left alone
+        ("", "5.0.0", "5.0.0"),  # empty -> latest verbatim
+        (None, "5.0.0", "5.0.0"),
+    ],
+)
+def test_bump_constraint(current, latest, expected):
+    assert bump_constraint(current, latest) == expected

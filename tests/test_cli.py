@@ -262,3 +262,66 @@ def test_cli_bad_registry_arg_returns_2(tmp_path, capsys, monkeypatch):
     err = capsys.readouterr().err
     assert rc == 2
     assert "ECO=VALUE" in err
+
+
+def test_cli_update_passes_args_to_run_update(tmp_path, capsys, monkeypatch):
+    from depfresh.updater import UpdateGroup, UpdateRun
+
+    captured = {}
+
+    def fake_run_update(repo, **kw):
+        captured["repo"] = repo
+        captured.update(kw)
+        return UpdateRun(
+            repo=repo,
+            base_branch="main",
+            dry_run=kw.get("dry_run", False),
+            groups=[
+                UpdateGroup(
+                    key="all",
+                    branch="depfresh/updates",
+                    title="Update 1 dependency",
+                    items=[],
+                    files_changed=["requirements.txt"],
+                    request_url="https://forge/mr/1",
+                    pushed=True,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(cli, "run_update", fake_run_update)
+    rc = main(["update", "https://github.com/o/n", "--token", "tok", "--grouping", "dependency"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert captured["repo"] == "https://github.com/o/n"
+    assert captured["token"] == "tok"
+    assert captured["grouping"] == "dependency"
+    assert "https://forge/mr/1" in out
+
+
+def test_cli_update_json_and_dry_run(tmp_path, capsys, monkeypatch):
+    from depfresh.updater import UpdateRun
+
+    def fake_run_update(repo, **kw):
+        assert kw["dry_run"] is True
+        return UpdateRun(repo=repo, base_branch="main", dry_run=True, groups=[])
+
+    monkeypatch.setattr(cli, "run_update", fake_run_update)
+    rc = main(["update", "https://github.com/o/n", "--dry-run", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["dry_run"] is True
+    assert payload["groups"] == []
+
+
+def test_cli_update_reports_errors(tmp_path, capsys, monkeypatch):
+    from depfresh.updater import UpdateError
+
+    def boom(repo, **kw):
+        raise UpdateError("no forge token provided")
+
+    monkeypatch.setattr(cli, "run_update", boom)
+    rc = main(["update", "https://github.com/o/n"])
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert "no forge token" in err

@@ -39,6 +39,32 @@ def extract_current_version(constraint: str | None) -> str | None:
     return match.group(0) if match else None
 
 
+def bump_constraint(current: str | None, latest: str) -> str:
+    """Return ``current`` with its version token swapped for ``latest``.
+
+    The surrounding operator/prefix/range is preserved so only the version
+    number changes::
+
+        ^18.2.0  + 19.0.0  -> ^19.0.0
+        ==2.28.1 + 2.31.0  -> ==2.31.0
+        v1.2.3   + v1.9.0  -> v1.9.0
+        ~> 7.0.4 + 7.1.0   -> ~> 7.1.0
+
+    When ``current`` pins no concrete version (wildcards, URLs) it is returned
+    unchanged; an empty ``current`` yields ``latest`` (without a leading ``v``).
+
+    Best-effort: for multi-clause ranges only the first version token is
+    substituted, which can need manual review if the bump crosses an upper bound.
+    """
+    target = latest.strip().lstrip("vV")
+    if not current or not current.strip():
+        return target
+    token = extract_current_version(current)
+    if token is None or token == target:
+        return current
+    return current.replace(token, target, 1)
+
+
 def _version_key(version: str) -> tuple[list[int], bool]:
     """Return (release_segments, is_prerelease) for comparison."""
     cleaned = version.strip().lstrip("vV").split("+", 1)[0]  # drop build metadata

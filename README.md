@@ -135,6 +135,42 @@ depfresh --flat
 Boolean flags use the `--flag`/`--no-flag` form, so a value enabled in a config
 file can be overridden from the command line in either direction.
 
+## Updating dependencies (open PRs/MRs)
+
+`depfresh update` closes the loop: it clones a repo, bumps outdated **declared
+manifests** in place (preserving formatting), pushes a branch, and opens a pull
+request (GitHub) or merge request (GitLab) against the default branch.
+
+```console
+# Preview the changes without pushing anything (safe default to start with)
+depfresh update https://github.com/me/app --token "$GITHUB_TOKEN" --dry-run
+
+# Open a single PR with every outdated dependency bumped to latest
+depfresh update https://github.com/me/app --token "$GITHUB_TOKEN"
+
+# One MR per dependency (Dependabot-style) on GitLab
+depfresh update https://gitlab.com/me/app --token "$GITLAB_TOKEN" --grouping dependency
+```
+
+| Option | Description |
+|--------|-------------|
+| `--token TOKEN` | Forge access token (else `DEPFRESH_FORGE_TOKEN_<KIND>` or config). |
+| `--grouping all\|ecosystem\|dependency` | How to group updates into MRs (default: `all`). |
+| `--base BRANCH` | Target branch for the MR (default: the repo's default branch). |
+| `--exclude PKG` | Leave a package untouched (repeatable). |
+| `-e, --ecosystem NAME` | Only update this ecosystem (repeatable). |
+| `--dry-run` | Show the diff and planned MRs without pushing or opening anything. |
+| `--json` | Emit the result as JSON. |
+
+Notes:
+- **Declared manifests only.** Constraints in `package.json`, `requirements.txt`,
+  `pyproject.toml`, `Cargo.toml`, `go.mod`, `pom.xml`, etc. are rewritten;
+  lockfiles are left untouched (regenerate them with your package manager).
+- The token needs permission to push branches and open PRs/MRs. It is passed to
+  git per-invocation and never written to the clone's config.
+- Re-running is safe: branches are deterministic and an already-open PR/MR for a
+  branch is reused instead of duplicated.
+
 ## Configuration
 
 depfresh runs against public registries out of the box. To target private
@@ -164,21 +200,29 @@ scanned project, then `~/.depfresh.json` and `~/.config/depfresh/config.json`.
       "username": "ci",
       "password": "${NPM_PASSWORD}"
     }
+  },
+  "forges": {
+    "github": { "token": "${GITHUB_TOKEN}" },
+    "gitlab": { "base_url": "https://git.acme.com/api/v4", "kind": "gitlab" }
   }
 }
 ```
 
 `${VAR}` in any string is expanded from the environment, keeping secrets out of
-the file.
+the file. (`kind` is only needed for self-hosted hosts whose name doesn't contain
+"github"/"gitlab".)
 
-Environment variables (`<ECO>` is the upper-cased ecosystem, e.g. `PYTHON`):
+Environment variables (`<ECO>` is the upper-cased ecosystem, e.g. `PYTHON`;
+`<KIND>` is `GITHUB` or `GITLAB`):
 
 | Variable | Purpose |
 |----------|---------|
-| `DEPFRESH_REGISTRY_<ECO>` | Base URL |
-| `DEPFRESH_TOKEN_<ECO>` | Bearer token |
-| `DEPFRESH_USERNAME_<ECO>` | Basic-auth user |
-| `DEPFRESH_PASSWORD_<ECO>` | Basic-auth password |
+| `DEPFRESH_REGISTRY_<ECO>` | Registry base URL |
+| `DEPFRESH_TOKEN_<ECO>` | Registry bearer token |
+| `DEPFRESH_USERNAME_<ECO>` | Registry basic-auth user |
+| `DEPFRESH_PASSWORD_<ECO>` | Registry basic-auth password |
+| `DEPFRESH_FORGE_TOKEN_<KIND>` | Forge token for `depfresh update` |
+| `DEPFRESH_FORGE_URL_<KIND>` | Forge API base URL (self-hosted) |
 
 ## How it works
 
@@ -188,6 +232,9 @@ Environment variables (`<ECO>` is the upper-cased ecosystem, e.g. `PYTHON`):
 2. **Check** (optional) — for each unique `(ecosystem, name)` look up the latest
    version from the relevant registry, in parallel, and compare it against the
    pinned constraint.
+3. **Update** (optional, `depfresh update`) — clone the repo, rewrite the
+   outdated declared manifests, push branch(es), and open PR/MR(s) — reusing the
+   same scan + check results.
 
 Version comparison is **best-effort**: it handles the dotted-numeric +
 pre-release shape that covers the vast majority of real versions (PEP 440,
