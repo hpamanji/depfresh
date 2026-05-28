@@ -12,7 +12,7 @@ import fnmatch
 import re
 from abc import ABC, abstractmethod
 
-from depfresh.versioning import bump_constraint
+from depfresh.versioning import bump_constraint, crosses_upper_bound
 
 EditResult = tuple[str, bool]
 
@@ -108,6 +108,7 @@ _REQ_SPEC_RE = re.compile(r"(?P<op>===|==|>=|<=|~=|!=|<|>)\s*(?P<ver>[0-9][^\s,;
 def replace_requirements_dependency(text: str, name: str, latest: str) -> EditResult:
     """Bump a requirement line in requirements*.txt / constraints*.txt."""
     target = _normalize(name)
+    new_ver = latest.strip().lstrip("vV")
     out: list[str] = []
     changed = False
     for line in text.splitlines(keepends=True):
@@ -116,17 +117,28 @@ def replace_requirements_dependency(text: str, name: str, latest: str) -> EditRe
             out.append(line)
             continue
         rest = m.group("rest")
-        spec = _REQ_SPEC_RE.search(rest)
-        if not spec:
+        # Scan only the version specifier, never an environment marker (`;`) or
+        # comment (`#`) that may carry its own version-looking tokens.
+        boundary = min((i for i in (rest.find(";"), rest.find("#")) if i != -1), default=len(rest))
+        specs = list(_REQ_SPEC_RE.finditer(rest, 0, boundary))
+        if not specs:
             out.append(line)
             continue
-        new_ver = latest.strip().lstrip("vV")
+        # A line with several specs is a bounded range; don't bump the lower
+        # bound past the upper one (`>=1.0,<2.0` + 2.5.0 stays untouched).
+        if crosses_upper_bound([s.group("ver") for s in specs], new_ver):
+            out.append(line)
+            continue
+        spec = specs[0]
         if new_ver == spec.group("ver"):
             out.append(line)
             continue
         head = m.group("lead") + m.group("name")
         new_rest = rest[: spec.start("ver")] + new_ver + rest[spec.end("ver") :]
-        out.append(head + new_rest)
+        # `rest` excludes the trailing newline, so re-add it (CRLF keeps its \r
+        # inside rest) — otherwise an edited line merges into the next one.
+        suffix = "\n" if line.endswith("\n") else ""
+        out.append(head + new_rest + suffix)
         changed = True
     return "".join(out), changed
 
@@ -236,11 +248,22 @@ def replace_gemfile_dependency(text: str, name: str, latest: str) -> EditResult:
         if not m or m.group("name") != name:
             out.append(line)
             continue
-        vm = _GEM_VER_RE.search(m.group("rest"))
-        if not vm or vm.group("ver") == target:
+        rest = m.group("rest")
+        # Ignore a trailing comment so its version-looking tokens don't count.
+        end = rest.find("#") if "#" in rest else len(rest)
+        vms = list(_GEM_VER_RE.finditer(rest, 0, end))
+        if not vms:
             out.append(line)
             continue
-        rest = m.group("rest")
+        # Several requirements on one gem line form a bounded range; don't bump
+        # the lower bound past the upper one.
+        if crosses_upper_bound([v.group("ver") for v in vms], target):
+            out.append(line)
+            continue
+        vm = vms[0]
+        if vm.group("ver") == target:
+            out.append(line)
+            continue
         new_rest = rest[: vm.start("ver")] + target + rest[vm.end("ver") :]
         suffix = "\n" if line.endswith("\n") else ""
         out.append(m.group("head") + new_rest + suffix)

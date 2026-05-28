@@ -9,6 +9,8 @@ Maven). It is not a full implementation of any one ecosystem's spec, so the
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
+from functools import cmp_to_key
 
 # Matches a leading dotted-numeric release, e.g. "1", "1.2", "18.2.0", "4.5.1.2".
 _RELEASE_RE = re.compile(r"\d+(?:\.\d+)*")
@@ -53,8 +55,11 @@ def bump_constraint(current: str | None, latest: str) -> str:
     When ``current`` pins no concrete version (wildcards, URLs) it is returned
     unchanged; an empty ``current`` yields ``latest`` (without a leading ``v``).
 
-    Best-effort: for multi-clause ranges only the first version token is
-    substituted, which can need manual review if the bump crosses an upper bound.
+    Multi-clause ranges (``>=1.0,<2.0``, ``1.0 - 2.0``) carry an upper bound.
+    Bumping the lower token to a version that crosses that bound would yield an
+    unsatisfiable constraint (``>=2.5.0,<2.0``), so the bump is applied only when
+    ``latest`` still sits below the highest version the range mentions;
+    otherwise ``current`` is returned unchanged for manual review.
     """
     target = latest.strip().lstrip("vV")
     if not current or not current.strip():
@@ -62,7 +67,24 @@ def bump_constraint(current: str | None, latest: str) -> str:
     token = extract_current_version(current)
     if token is None or token == target:
         return current
+    if crosses_upper_bound(_VERSION_TOKEN_RE.findall(current), target):
+        return current
     return current.replace(token, target, 1)
+
+
+def crosses_upper_bound(versions: Sequence[str], latest: str) -> bool:
+    """Whether bumping to ``latest`` would breach the upper bound of a range.
+
+    A constraint that names more than one version (``>=1.0,<2.0``, ``1.0 - 2.0``,
+    ``gem "x", ">= 1", "< 2"``) is bounded above by its highest token. Raising a
+    lower token past that bound yields an unsatisfiable constraint, so callers
+    skip the bump when this returns ``True``. A single version is unbounded above,
+    so this is always ``False`` for it.
+    """
+    if len(versions) <= 1:
+        return False
+    upper = max(versions, key=cmp_to_key(compare))
+    return compare(latest, upper) >= 0
 
 
 def _version_key(version: str) -> tuple[list[int], bool]:

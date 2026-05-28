@@ -32,6 +32,7 @@ class FakeForge:
                 "base": base,
                 "head": head,
                 "title": title,
+                "body": body,
                 "reused": reused,
                 "delete": delete_source_branch,
             }
@@ -177,6 +178,31 @@ def test_rerun_with_new_release_reuses_branch_and_mr(tmp_path):
     assert "requests==2.32.0" in _remote_show(remote, "depfresh/updates", "requirements.txt")
     assert forge.opened[-1]["reused"] is True  # reused, not a new MR
     assert "depfresh/updates" in _remote_branches(remote)
+
+
+def test_pr_body_lists_only_applied_items(tmp_path):
+    # flask's bump crosses the range's upper bound, so it is planned (outdated)
+    # but not written; the body must describe only what actually changed.
+    files = {"requirements.txt": "requests==2.0.0\nflask>=1.0,<2.0\n"}
+    routes = {
+        "pypi.org/pypi/requests": {"info": {"version": "2.31.0"}},
+        "pypi.org/pypi/flask": {"info": {"version": "2.5.0"}},
+    }
+    remote = _seed_remote(tmp_path, files)
+    forge = FakeForge()
+    run = run_update(str(remote), forge=forge, clone_url=str(remote), fetch=_fetch(routes))
+
+    group = run.groups[0]
+    assert group.files_changed == ["requirements.txt"]
+    assert {it.name for it in group.applied_items} == {"requests"}
+    # Title and body both describe only the applied bump (1, not the planned 2).
+    assert group.title == "Update 1 dependency"
+    assert forge.opened[0]["title"] == "Update 1 dependency"
+    body = forge.opened[0]["body"]
+    assert "requests" in body and "flask" not in body
+    written = _remote_show(remote, "depfresh/updates", "requirements.txt")
+    assert "requests==2.31.0" in written
+    assert "flask>=1.0,<2.0" in written  # range left intact, not corrupted
 
 
 def test_run_update_exclude_skips_package(tmp_path):

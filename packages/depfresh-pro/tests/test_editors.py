@@ -46,6 +46,24 @@ def test_requirements_editor_case_insensitive_name():
     assert "Flask-SQLAlchemy==2.0.0" in new
 
 
+def test_requirements_editor_skips_range_bump_crossing_upper_bound():
+    # Bumping the lower bound past the upper one would be unsatisfiable.
+    text = "flask>=1.0,<2.0\n"
+    new, changed = RequirementsTxtEditor().apply(text, "flask", ">=1.0,<2.0", "2.5.0")
+    assert changed is False
+    assert new == text
+    # In-bounds: the lower bound is raised, the upper bound is preserved.
+    new2, changed2 = RequirementsTxtEditor().apply(text, "flask", ">=1.0,<2.0", "1.5.0")
+    assert changed2 and new2 == "flask>=1.5.0,<2.0\n"
+
+
+def test_requirements_editor_preserves_newline_on_non_final_line():
+    text = "requests==2.0.0\nflask==1.0.0\n"
+    new, changed = RequirementsTxtEditor().apply(text, "requests", "==2.0.0", "2.31.0")
+    assert changed
+    assert new == "requests==2.31.0\nflask==1.0.0\n"  # lines not merged
+
+
 def test_pyproject_editor_pep621_and_poetry():
     text = (
         "[project]\n"
@@ -152,6 +170,16 @@ def test_gemfile_editor():
     assert 'gem "rails", "~> 7.1.0"' in new
     assert 'gem "pg"' in new
     assert _ver(GemfileParser(), new, "rails") == "~> 7.1.0"
+
+
+def test_gemfile_editor_skips_range_bump_crossing_upper_bound():
+    text = 'gem "foo", ">= 1.0", "< 2.0"\n'
+    new, changed = GemfileEditor().apply(text, "foo", ">= 1.0", "2.5.0")
+    assert changed is False
+    assert new == text
+    # In-bounds bump raises the lower requirement, leaves the upper one.
+    new2, changed2 = GemfileEditor().apply(text, "foo", ">= 1.0", "1.5.0")
+    assert changed2 and new2 == 'gem "foo", ">= 1.5.0", "< 2.0"\n'
 
 
 def test_no_change_returns_false():

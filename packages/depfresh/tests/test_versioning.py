@@ -64,7 +64,12 @@ def test_is_outdated():
         ("~> 7.0.4", "7.1.0", "~> 7.1.0"),
         ("v1.2.3", "v1.9.0", "v1.9.0"),  # go: leading v preserved, no doubling
         ("1.2.3", "1.9.0", "1.9.0"),  # bare pin
-        (">=3.2,<4", "3.9.1", ">=3.9.1,<4"),  # range: first token bumped
+        (">=3.2,<4", "3.9.1", ">=3.9.1,<4"),  # range: in-bounds lower bump
+        (">=1.0,<2.0", "2.5.0", ">=1.0,<2.0"),  # range: crossing upper -> untouched
+        (">=1.2,<1.20", "1.25", ">=1.2,<1.20"),  # range: crossing upper -> untouched
+        (">=1.0,<=2.0", "2.0", ">=1.0,<=2.0"),  # range: hits upper bound -> untouched
+        ("1.0.0 - 2.0.0", "1.5.0", "1.5.0 - 2.0.0"),  # hyphen range: in-bounds bump
+        ("1.0.0 - 2.0.0", "2.5.0", "1.0.0 - 2.0.0"),  # hyphen range: crossing -> untouched
         ("*", "5.0.0", "*"),  # wildcard left alone
         ("", "5.0.0", "5.0.0"),  # empty -> latest verbatim
         (None, "5.0.0", "5.0.0"),
