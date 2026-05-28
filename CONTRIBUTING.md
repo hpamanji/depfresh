@@ -143,6 +143,39 @@ To make `--check-updates` work for a new ecosystem, add a registry client in
 Use `config.base_url` / `config.auth_headers()` so private registries and
 authentication keep working for the new ecosystem.
 
+## Adding an editor (for `depfresh update`)
+
+`depfresh update` rewrites a dependency's version in place. Editors live in
+`src/depfresh/editors/`, mirroring `parsers/`, and do **text-level** replacement
+(never parse-and-reserialize, which would lose comments/formatting).
+
+1. **Add an editor module** under `src/depfresh/editors/`, subclassing `Editor`
+   and reusing a shared helper from `editors/base.py`
+   (`replace_json_dependency`, `replace_toml_dependency`,
+   `replace_requirements_dependency`, `replace_pom_dependency`,
+   `replace_coordinate_dependency`, `replace_dotnet_dependency`,
+   `replace_gomod_dependency`, `replace_gemfile_dependency`) — or a new helper:
+
+   ```python
+   from depfresh.editors.base import EditResult, Editor, replace_toml_dependency
+
+   class MixExsEditor(Editor):
+       ecosystem = "elixir"
+       filenames = ("mix.exs",)
+
+       def apply(self, text, name, current, latest) -> EditResult:
+           return replace_toml_dependency(text, name, latest)  # returns (new_text, changed)
+   ```
+
+   New version strings are computed by `versioning.bump_constraint`, which
+   preserves the operator/prefix (`^18.2.0` + `19.0.0` → `^19.0.0`).
+
+2. **Register it** in `src/depfresh/editors/registry.py` (`EDITORS`). Only add
+   editors for **declared** manifests — lockfiles must stay absent so they're
+   skipped.
+3. **Add tests** in `tests/test_editors.py`; assert formatting is preserved and,
+   where possible, that the result re-parses to the new version.
+
 ## Coding style
 
 - Type-hint public functions; modules start with

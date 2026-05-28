@@ -8,6 +8,7 @@ import json
 import pytest
 
 from depfresh.config import (
+    ForgeConfig,
     RegistryConfig,
     from_env,
     from_json,
@@ -149,3 +150,61 @@ def test_load_config_env_overrides_file(tmp_path):
     )
     config = load_config(scan_path=tmp_path, environ={"DEPFRESH_REGISTRY_NODE": "https://from-env"})
     assert config.registries["node"].base_url == "https://from-env"
+
+
+def test_from_json_parses_forges(monkeypatch):
+    monkeypatch.setenv("GH_TOKEN", "ghp_xyz")
+    config = from_json(
+        json.dumps(
+            {
+                "forges": {
+                    "github": {"token": "${GH_TOKEN}"},
+                    "gitlab": {"base_url": "https://git.acme.com/api/v4", "kind": "gitlab"},
+                }
+            }
+        )
+    )
+    assert config.forges["github"].token == "ghp_xyz"
+    assert config.forges["gitlab"].base_url == "https://git.acme.com/api/v4"
+    assert config.forges["gitlab"].kind == "gitlab"
+
+
+def test_from_env_parses_forge_token():
+    config = from_env(
+        {"DEPFRESH_FORGE_TOKEN_GITHUB": "tok", "DEPFRESH_FORGE_URL_GITLAB": "https://g/api/v4"}
+    )
+    assert config.forges["github"].token == "tok"
+    assert config.forges["gitlab"].base_url == "https://g/api/v4"
+
+
+def test_merge_forge_precedence():
+    base = from_json(json.dumps({"forges": {"github": {"token": "filetok", "kind": "github"}}}))
+    override = from_env({"DEPFRESH_FORGE_TOKEN_GITHUB": "envtok"})
+    result = merge(base, override)
+    assert result.forges["github"].token == "envtok"  # env overrides
+    assert result.forges["github"].kind == "github"  # kept from file
+    assert result.for_forge("GitHub").token == "envtok"  # case-insensitive lookup
+
+
+def test_forge_config_merged_keeps_unset():
+    merged = ForgeConfig(token="a", kind="github").merged(ForgeConfig(base_url="https://x"))
+    assert merged == ForgeConfig(token="a", base_url="https://x", kind="github")
+
+
+def test_from_json_parses_update_settings():
+    config = from_json(
+        json.dumps(
+            {
+                "settings": {
+                    "grouping": "ecosystem",
+                    "branch-prefix": "bot/",
+                    "exclude": ["left-pad"],
+                    "dry-run": True,
+                }
+            }
+        )
+    )
+    assert config.settings.grouping == "ecosystem"
+    assert config.settings.branch_prefix == "bot/"
+    assert config.settings.exclude == ["left-pad"]
+    assert config.settings.dry_run is True
