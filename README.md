@@ -241,6 +241,15 @@ pre-release shape that covers the vast majority of real versions (PEP 440,
 SemVer, NuGet, Maven), but it is not a full implementation of any one
 ecosystem's spec. Treat the "outdated" flag as a strong hint, not a guarantee.
 
+## Documentation
+
+Full, modular docs live in [`docs/`](docs/README.md):
+
+- [Quickstart](docs/quickstart.md) and [Installation](docs/installation.md)
+- Guides: [Scanning](docs/scanning.md) · [Checking for updates](docs/checking-updates.md) · [Updating dependencies](docs/updating.md) · [Configuration](docs/configuration.md)
+- Reference: [Supported ecosystems](docs/ecosystems.md) · [CLI reference](docs/cli-reference.md) · [Library API](docs/library.md)
+- Internals: [Architecture](docs/architecture.md) · [Extending depfresh](docs/extending.md)
+
 ## Contributing
 
 Contributions are very welcome — adding a new ecosystem is often just one parser
