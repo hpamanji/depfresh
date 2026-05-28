@@ -242,9 +242,7 @@ def _resolve_one(
             ecosystem, name, constraint, current_version, None, ERROR, f"HTTP {exc.code}"
         )
     except Exception as exc:  # noqa: BLE001 - surface any failure per dependency
-        return UpdateInfo(
-            ecosystem, name, constraint, current_version, None, ERROR, str(exc)
-        )
+        return UpdateInfo(ecosystem, name, constraint, current_version, None, ERROR, str(exc))
 
     if latest is None:
         return UpdateInfo(ecosystem, name, constraint, current_version, None, NOT_FOUND)

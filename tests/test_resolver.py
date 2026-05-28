@@ -124,9 +124,7 @@ def test_packagist_skips_dev_versions():
     fetch, _ = recording_fetch(
         {
             "repo.packagist.org": {
-                "packages": {
-                    "monolog/monolog": [{"version": "dev-main"}, {"version": "3.5.0"}]
-                }
+                "packages": {"monolog/monolog": [{"version": "dev-main"}, {"version": "3.5.0"}]}
             }
         }
     )

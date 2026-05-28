@@ -33,6 +33,7 @@ class CargoTomlParser(Parser):
     def _section(self, table: dict, scope: str) -> list[Dependency]:
         out: list[Dependency] = []
         for name, spec in (table or {}).items():
+            version: str | None
             if isinstance(spec, str):
                 version = spec
             elif isinstance(spec, dict):

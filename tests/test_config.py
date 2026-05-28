@@ -103,7 +103,9 @@ def test_load_config_missing_explicit_path(tmp_path):
 
 
 def test_load_config_autodiscovers_project_file(tmp_path):
-    _write_config(tmp_path / "depfresh.json", {"registries": {"node": {"base_url": "https://npm.acme.com"}}})
+    _write_config(
+        tmp_path / "depfresh.json", {"registries": {"node": {"base_url": "https://npm.acme.com"}}}
+    )
     config = load_config(scan_path=tmp_path, environ={})
     assert config.registries["node"].base_url == "https://npm.acme.com"
 
@@ -142,8 +144,8 @@ def test_settings_merge_precedence():
 
 
 def test_load_config_env_overrides_file(tmp_path):
-    _write_config(tmp_path / "depfresh.json", {"registries": {"node": {"base_url": "https://from-file"}}})
-    config = load_config(
-        scan_path=tmp_path, environ={"DEPFRESH_REGISTRY_NODE": "https://from-env"}
+    _write_config(
+        tmp_path / "depfresh.json", {"registries": {"node": {"base_url": "https://from-file"}}}
     )
+    config = load_config(scan_path=tmp_path, environ={"DEPFRESH_REGISTRY_NODE": "https://from-env"})
     assert config.registries["node"].base_url == "https://from-env"

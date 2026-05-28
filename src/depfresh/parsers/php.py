@@ -39,7 +39,7 @@ class ComposerLockParser(Parser):
         data = json.loads(text)
         deps: list[Dependency] = []
         for section, scope in (("packages", "runtime"), ("packages-dev", "dev")):
-            for pkg in (data.get(section, []) or []):
+            for pkg in data.get(section, []) or []:
                 name = pkg.get("name")
                 if name and not _is_platform_requirement(name):
                     deps.append(self._dep(name, pkg.get("version"), scope=scope))

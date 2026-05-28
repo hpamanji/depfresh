@@ -156,9 +156,7 @@ def _filter_ecosystems(result: ScanResult, ecosystems: list[str] | None) -> Scan
     return result
 
 
-def _keep_outdated_only(
-    result: ScanResult, updates: dict[tuple[str, str], UpdateInfo]
-) -> None:
+def _keep_outdated_only(result: ScanResult, updates: dict[tuple[str, str], UpdateInfo]) -> None:
     for manifest in result.manifests:
         manifest.dependencies = [
             d
@@ -267,9 +265,7 @@ def _render_flat(result: ScanResult, updates: dict[tuple[str, str], UpdateInfo] 
     return "\n".join(lines)
 
 
-def _build_flat_json(
-    result: ScanResult, updates: dict[tuple[str, str], UpdateInfo] | None
-) -> dict:
+def _build_flat_json(result: ScanResult, updates: dict[tuple[str, str], UpdateInfo] | None) -> dict:
     records = []
     for dep in _flat_dependencies(result):
         record = dep.to_dict()
@@ -314,9 +310,7 @@ def _render_bump_plan(root: str, plan: BumpPlan) -> str:
     return "\n".join(lines)
 
 
-def _build_json(
-    result: ScanResult, updates: dict[tuple[str, str], UpdateInfo] | None
-) -> dict:
+def _build_json(result: ScanResult, updates: dict[tuple[str, str], UpdateInfo] | None) -> dict:
     payload = result.to_dict()
     if updates is None:
         return payload

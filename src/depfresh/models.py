@@ -42,8 +42,7 @@ class ManifestResult:
             "ecosystem": self.ecosystem,
             "manager": self.manager,
             "dependencies": [
-                {k: v for k, v in d.to_dict().items() if k != "manifest"}
-                for d in self.dependencies
+                {k: v for k, v in d.to_dict().items() if k != "manifest"} for d in self.dependencies
             ],
             "error": self.error,
         }

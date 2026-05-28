@@ -8,9 +8,7 @@ from depfresh.models import Dependency
 from depfresh.parsers.base import Parser
 
 # e.g. "github.com/foo/bar v1.2.3" optionally followed by "// indirect"
-_REQUIRE_RE = re.compile(
-    r"^(?P<path>[^\s]+)\s+(?P<version>v[^\s]+)(?P<comment>\s*//.*)?$"
-)
+_REQUIRE_RE = re.compile(r"^(?P<path>[^\s]+)\s+(?P<version>v[^\s]+)(?P<comment>\s*//.*)?$")
 
 
 class GoModParser(Parser):
@@ -34,7 +32,7 @@ class GoModParser(Parser):
                 continue
 
             if line.startswith("require"):
-                rest = line[len("require"):].strip()
+                rest = line[len("require") :].strip()
                 if rest.startswith("("):
                     in_require_block = True
                     continue

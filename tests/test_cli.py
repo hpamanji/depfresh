@@ -95,9 +95,7 @@ def _fake_updates(monkeypatch):
         ("python", "requests"): UpdateInfo(
             "python", "requests", "==2.0.0", "2.0.0", "2.31.0", OUTDATED
         ),
-        ("python", "flask"): UpdateInfo(
-            "python", "flask", "==3.0.0", "3.0.0", "3.0.0", CURRENT
-        ),
+        ("python", "flask"): UpdateInfo("python", "flask", "==3.0.0", "3.0.0", "3.0.0", CURRENT),
     }
     monkeypatch.setattr(cli, "check_updates", lambda result, **kw: canned)
     return canned
@@ -250,9 +248,7 @@ def test_render_bump_plan_counts_distinct_files():
         ],
     )
     updates = {
-        ("python", "requests"): UpdateInfo(
-            "python", "requests", None, None, "2.31.0", OUTDATED
-        )
+        ("python", "requests"): UpdateInfo("python", "requests", None, None, "2.31.0", OUTDATED)
     }
     out = _render_bump_plan("p", build_bump_plan(result, updates))
     assert "(1 file)" in out

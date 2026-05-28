@@ -51,9 +51,7 @@ class GemfileParser(Parser):
                 # like ":require => false" use symbols/hashrockets, not quotes.
                 reqs = _VERSION_REQ_RE.findall(m.group("reqs"))
                 version = ", ".join(reqs) if reqs else None
-                deps.append(
-                    self._dep(m.group("name"), version, scope=self._scope(block_stack))
-                )
+                deps.append(self._dep(m.group("name"), version, scope=self._scope(block_stack)))
                 continue
 
             if _BLOCK_OPEN_RE.search(stripped):

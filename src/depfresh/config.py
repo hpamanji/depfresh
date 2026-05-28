@@ -45,6 +45,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -159,24 +160,20 @@ def from_json(text: str) -> DepfreshConfig:
         )
 
     # Accept both "check-updates" and "check_updates" spellings.
-    raw_settings = {
-        k.replace("-", "_"): v for k, v in (data.get("settings") or {}).items()
-    }
+    raw_settings = {k.replace("-", "_"): v for k, v in (data.get("settings") or {}).items()}
     unknown = set(raw_settings) - _SETTINGS_FIELDS
     if unknown:
         raise ValueError(f"unknown setting(s): {', '.join(sorted(unknown))}")
-    config.settings = Settings(
-        **{k: v for k, v in raw_settings.items() if k in _SETTINGS_FIELDS}
-    )
+    config.settings = Settings(**{k: v for k, v in raw_settings.items() if k in _SETTINGS_FIELDS})
     return config
 
 
-def from_env(environ: dict[str, str]) -> DepfreshConfig:
+def from_env(environ: Mapping[str, str]) -> DepfreshConfig:
     config = DepfreshConfig()
     for key, value in environ.items():
         for prefix, field_name in _ENV_FIELDS.items():
             if key.startswith(prefix):
-                ecosystem = key[len(prefix):].lower()
+                ecosystem = key[len(prefix) :].lower()
                 if ecosystem:
                     reg = config.registries.setdefault(ecosystem, RegistryConfig())
                     setattr(reg, field_name, value)
@@ -216,7 +213,7 @@ def load_config(
     *,
     explicit_path: str | os.PathLike[str] | None = None,
     scan_path: str | os.PathLike[str] | None = None,
-    environ: dict[str, str] | None = None,
+    environ: Mapping[str, str] | None = None,
 ) -> DepfreshConfig:
     """Load and merge config from file(s) and environment.
 
@@ -224,7 +221,7 @@ def load_config(
     otherwise the standard project/home locations are auto-discovered.
     Environment variables always override file values.
     """
-    environ = os.environ if environ is None else environ
+    env: Mapping[str, str] = os.environ if environ is None else environ
     configs: list[DepfreshConfig] = []
 
     if explicit_path is not None:
@@ -237,5 +234,5 @@ def load_config(
             if path.is_file():
                 configs.append(_read_config_file(path))
 
-    configs.append(from_env(environ))
+    configs.append(from_env(env))
     return merge(*configs)

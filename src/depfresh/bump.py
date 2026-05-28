@@ -61,9 +61,7 @@ class BumpPlan:
         }
 
 
-def build_bump_plan(
-    result: ScanResult, updates: dict[tuple[str, str], UpdateInfo]
-) -> BumpPlan:
+def build_bump_plan(result: ScanResult, updates: dict[tuple[str, str], UpdateInfo]) -> BumpPlan:
     """Group every outdated dependency by package, collecting where it appears.
 
     Items are ordered by blast radius (most files first) so the highest-impact
@@ -91,9 +89,7 @@ def build_bump_plan(
             if occ_key in seen[key]:
                 continue
             seen[key].add(occ_key)
-            item.occurrences.append(
-                BumpOccurrence(manifest.path, dep.version, dep.scope)
-            )
+            item.occurrences.append(BumpOccurrence(manifest.path, dep.version, dep.scope))
 
     ordered = sorted(
         items.values(),

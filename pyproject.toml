@@ -6,29 +6,61 @@ build-backend = "setuptools.build_meta"
 name = "depfresh"
 version = "0.1.0"
 description = "A dependency scanner that finds and parses dependency manifests across ecosystems."
+readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Hemachandar Pamanji" }]
 keywords = ["dependencies", "scanner", "sbom", "manifest"]
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Build Tools",
+    "Typing :: Typed",
 ]
 # Runtime is stdlib-only (tomllib, json, xml.etree). No third-party deps.
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff==0.15.14",
+    "mypy==2.1.0",
+]
 
 [project.scripts]
 depfresh = "depfresh.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/hpamanji/depfresh"
+Repository = "https://github.com/hpamanji/depfresh"
+Issues = "https://github.com/hpamanji/depfresh/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+depfresh = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src/depfresh"]
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+[tool.coverage.run]
+source = ["depfresh"]
